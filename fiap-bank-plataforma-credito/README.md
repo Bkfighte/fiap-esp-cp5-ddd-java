@@ -2,67 +2,40 @@
 
 Microsserviço de **Esteira e Motor de Decisão de Crédito** do FIAP Bank. Responsável por processar propostas de crédito, avaliar regras de negócio e risco, comunicar-se com o Core Bancário via **Spring Cloud OpenFeign**, simular verificações no SCR (Banco Central) e Bureau de Crédito (Serasa/SPC), e notificar clientes.
 
-A API foi projetada de forma que todas as operações utilizeßm o método HTTP `POST` com verbos de ação semânticos no path.
+Refatorado em arquitetura **DDD Multi-Módulo** (`domain`, `infrastructure`, `application` e `presentation`), expondo endpoints RESTful em `/api/v1/solicitacoes` e mantendo o controller `/api/credito` como adapter para a Mesa de Operações e o app Mobile.
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
 - **Java 21**
-- **Spring Boot 4.1**
-- **Spring Cloud OpenFeign 2024.0.0** (comunicação declarativa com o Core Bancário)
-- **Spring Data JPA**
+- **Spring Boot 4.1.1**
+- **Spring Cloud OpenFeign 2025.1.0** (comunicação declarativa com o Core Bancário)
+- **Spring Data JPA & Bean Validation**
+- **Lombok**
 - **Spring Boot Actuator**
 - **H2 Database** (em memória)
 - **Maven**
 
 ---
 
-## 📋 Pré-requisitos
-
-- **Java JDK 21** instalado e configurado no `PATH`.
-- **Apache Maven 3.9+** instalado.
-- *(Opcional)* Serviço **Core Bancário** rodando na porta `8080` (caso indisponível, o cliente Feign utiliza dados de fallback automaticamente).
-
----
-
 ## 🚀 Como Executar a Aplicação
 
-### 1. Compilar o projeto
+### 1. Compilar os módulos
 
 Na raiz do diretório `fiap-bank-plataforma-credito`:
 
 ```bash
-mvn clean compile
+mvn clean install
 ```
 
 ### 2. Iniciar a aplicação via Maven
 
 ```bash
-mvn spring-boot:run
-```
-
-### 3. Executar via arquivo JAR
-
-Para gerar o pacote e executar:
-
-```bash
-mvn clean package -DskipTests
-java -jar target/fiap-bank-plataforma-credito-1.0.0-SNAPSHOT.jar
+mvn -pl presentation spring-boot:run
 ```
 
 A aplicação estará acessível em: **`http://localhost:8081`**
-
----
-
-## ⚙️ Variáveis de Ambiente e Configuração
-
-As seguintes propriedades podem ser customizadas no arquivo `src/main/resources/application.yml` ou passadas como variáveis de ambiente:
-
-| Propriedade | Variável de Ambiente | Valor Padrão | Descrição |
-| :--- | :--- | :--- | :--- |
-| `server.port` | `SERVER_PORT` | `8081` | Porta HTTP da aplicação |
-| `core.bancario.url` | `CORE_BANCARIO_URL` | `http://localhost:8080/api/v1` | URL base da API do Core Bancário |
 
 ---
 
@@ -75,75 +48,27 @@ As seguintes propriedades podem ser customizadas no arquivo `src/main/resources/
 
 ---
 
-## 🌐 Endpoints Non-RESTful (All POST)
+## 🌐 Endpoints RESTful (`/api/v1/solicitacoes`)
 
-Base URL: `http://localhost:8081/api/credito`
+- `GET /api/v1/solicitacoes` - Lista todas as solicitações de crédito (`200 OK`)
+- `GET /api/v1/solicitacoes/{id}` - Busca uma solicitação por ID (`200 OK` / `404 Not Found`)
+- `GET /api/v1/solicitacoes/cpf/{cpf}` - Lista solicitações de um cliente pelo CPF (`200 OK` / `400 Bad Request`)
+- `GET /api/v1/solicitacoes/conta-core/{cpf}` - Consulta dados da conta no Core Bancário (`200 OK`)
+- `POST /api/v1/solicitacoes` - Cria uma nova solicitação de crédito (`201 Created` / `400 Bad Request`)
+- `PUT /api/v1/solicitacoes/{id}/aprovacao` - Aprova proposta na Mesa de Operações (`200 OK` / `404 Not Found` / `409 Conflict`)
+- `PUT /api/v1/solicitacoes/{id}/reprovacao` - Reprova proposta na Mesa de Operações (`200 OK` / `400 Bad Request` / `404 Not Found` / `409 Conflict`)
+- `DELETE /api/v1/solicitacoes/{id}` - Remove uma solicitação (`204 No Content` / `404 Not Found`)
 
-### 1. Solicitar Crédito (Ação: `solicitarCredito`)
-Envia uma nova proposta para o motor de risco de crédito.
-- **Endpoint:** `POST /api/credito/solicitarCredito`
-- **Exemplo de Body:**
-```json
-{
-  "cpfCliente": "12345678900",
-  "nomeCliente": "Ana Silva",
-  "tipoCredito": "EMPRESTIMO_PESSOAL",
-  "valorSolicitado": 15000.00,
-  "quantidadeParcelas": 24,
-  "rendaMensal": 7500.00
-}
-```
+---
 
-### 2. Consultar Status por CPF (Ação: `consultarStatusCredito`)
-Consulta todas as solicitações de um cliente informado pelo corpo da requisição.
-- **Endpoint:** `POST /api/credito/consultarStatusCredito`
-- **Exemplo de Body:**
-```json
-{
-  "cpfCliente": "12345678900"
-}
-```
+## Endpoints Legados (`/api/credito`)
 
-### 3. Listar Todas as Solicitações (Ação: `listarTodasSolicitacoes`)
-Retorna todas as propostas para acompanhamento pela Mesa de Operações.
-- **Endpoint:** `POST /api/credito/listarTodasSolicitacoes`
-- **Body:** `{}` *(ou vazio)*
+Mantidos para integração com a Mesa de Operações (`8082`) e o Internet Banking Mobile (`4200`):
 
-### 4. Buscar Solicitação por ID (Ação: `buscarSolicitacaoPorId`)
-- **Endpoint:** `POST /api/credito/buscarSolicitacaoPorId`
-- **Exemplo de Body:**
-```json
-{
-  "id": 1
-}
-```
-
-### 5. Aprovar Solicitação (Ação: `aprovarSolicitacao`)
-- **Endpoint:** `POST /api/credito/aprovarSolicitacao`
-- **Exemplo de Body:**
-```json
-{
-  "id": 1,
-  "parecerOperador": "Proposta aprovada conforme política de crédito."
-}
-```
-
-### 6. Reprovar Solicitação (Ação: `reprovarSolicitacao`)
-- **Endpoint:** `POST /api/credito/reprovarSolicitacao`
-- **Exemplo de Body:**
-```json
-{
-  "id": 1,
-  "parecerOperador": "Margem consignável insuficiente."
-}
-```
-
-### 7. Consultar Cliente no Core Bancário (Ação: `consultarClienteCore`)
-Executa a chamada direta ao Core Bancário via Spring Cloud OpenFeign.
-- **Endpoint:** `POST /api/credito/consultarClienteCore`
-- **Exemplo de Body:**
-```json
-{
-  "cpfCliente": "12345678900"
-}
-```
+- `POST /api/credito/solicitar`
+- `POST /api/credito/consultar-status`
+- `POST /api/credito/listar-todas`
+- `POST /api/credito/buscar-detalhe`
+- `POST /api/credito/aprovar-operacao`
+- `POST /api/credito/reprovar-operacao`
+- `POST /api/credito/consultar-conta-core`

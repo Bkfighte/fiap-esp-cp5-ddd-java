@@ -4,6 +4,14 @@ Monorepo contendo o ecossistema completo da **Esteira de Crédito** do FIAP Bank
 
 ---
 
+## Aluno
+
+- **Nome:** Bruno Koeke
+- **RM:** 561309
+- **Turma:** 2ESPH - Engenharia de Software
+
+---
+
 ## 📁 Estrutura do Workspace e Documentação
 
 Cada projeto possui seu próprio arquivo `README.md` detalhando tecnologias, arquitetura, rotas e instruções de execução:
@@ -11,9 +19,16 @@ Cada projeto possui seu próprio arquivo `README.md` detalhando tecnologias, arq
 | Projeto | Tecnologia | Porta | Descrição & Documentação |
 | :--- | :--- | :---: | :--- |
 | **`fiap-bank-core-bancario`** | Java 21, Spring Boot, JPA, DDD Multi-Módulo | `8080` | [README do Core Bancário](./fiap-bank-core-bancario/README.md) |
-| **`fiap-bank-plataforma-credito`** | Java 21, Spring Boot, Spring Cloud Feign | `8081` | [README da Plataforma de Crédito](./fiap-bank-plataforma-credito/README.md) |
+| **`fiap-bank-plataforma-credito`** | Java 21, Spring Boot, Spring Cloud Feign, DDD Multi-Módulo | `8081` | [README da Plataforma de Crédito](./fiap-bank-plataforma-credito/README.md) |
 | **`fiap-bank-mesa-operacoes-credito`** | Java 21, Spring Boot, Thymeleaf, Feign | `8082` | [README da Mesa de Operações](./fiap-bank-mesa-operacoes-credito/README.md) |
 | **`fiap-bank-internet-banking-mobile`** | Angular 17+, TypeScript, CSS Responsivo | `4200` | [README do Mobile Angular](./fiap-bank-internet-banking-mobile/README.md) |
+
+---
+
+## Alterações Realizadas no Checkpoint 5
+
+- **`fiap-bank-core-bancario` (Fase 1):** Construído do zero na porta `8080` com estrutura Maven Multi-Módulo (`domain`, `infrastructure`, `application` e `presentation`). Na camada `domain` ficaram as entidades `Cliente` e `ContaBancaria`, os Value Objects (`Cpf`, `Email`, `Saldo`) e as interfaces de repositório sem dependência do Spring. A persistência em H2 (`jdbc:h2:mem:corebancariodb`) foi feita na camada `infrastructure` usando adapters, os casos de uso e DTOs com Bean Validation ficaram em `application`, e os controllers RESTful (`/api/v1/clientes` e `/api/v1/contas`) junto com o `GlobalExceptionHandler` ficaram em `presentation`.
+- **`fiap-bank-plataforma-credito` (Fase 2):** Refatorado para a mesma estrutura de 4 módulos Maven (`domain`, `infrastructure`, `application` e `presentation`). A classe `SolicitacaoCredito` foi limpa das anotações do JPA e isolada no módulo `domain`, enquanto a entidade JPA e o `CoreBancarioFeignClient` foram movidos para `infrastructure`. Na camada `presentation`, foi criado o controller RESTful em `/api/v1/solicitacoes` e mantido o controller `/api/credito` como adapter para não quebrar a integração com a Mesa de Operações (`8082`) e o app mobile Angular (`4200`).
 
 ---
 
@@ -26,7 +41,7 @@ Responsável pela gestão de clientes e contas bancárias.
 ```bash
 cd fiap-bank-core-bancario
 mvn clean install
-mvn -pl fiap-bank-core-bancario-presentation spring-boot:run
+mvn -pl presentation spring-boot:run
 ```
 - API Base: `http://localhost:8080/api/v1`
 - H2 Console: `http://localhost:8080/h2-console`
@@ -37,10 +52,11 @@ mvn -pl fiap-bank-core-bancario-presentation spring-boot:run
 Motor de decisão e esteira, integrado via Spring Cloud OpenFeign ao Core Bancário.
 ```bash
 cd fiap-bank-plataforma-credito
-mvn clean compile
-mvn spring-boot:run
+mvn clean install
+mvn -pl presentation spring-boot:run
 ```
-- API Base: `http://localhost:8081/api/credito`
+- API RESTful: `http://localhost:8081/api/v1/solicitacoes`
+- API Adapter (Legado): `http://localhost:8081/api/credito`
 - H2 Console: `http://localhost:8081/h2-console`
 
 ---
